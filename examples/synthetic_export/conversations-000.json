@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Synthetic Project Notes",
+    "id": "00000000-0000-0000-0000-000000000001",
+    "conversation_id": "00000000-0000-0000-0000-000000000001",
+    "create_time": 1704067200,
+    "update_time": 1704067260,
+    "current_node": "assistant-node",
+    "mapping": {
+      "root": {
+        "id": "root",
+        "parent": null,
+        "children": ["user-node"],
+        "message": null
+      },
+      "user-node": {
+        "id": "user-node",
+        "parent": "root",
+        "children": ["assistant-node"],
+        "message": {
+          "author": {"role": "user"},
+          "create_time": 1704067200,
+          "content": {
+            "content_type": "multimodal_text",
+            "parts": [
+              "Please summarize the attached synthetic notes.",
+              {"asset_pointer": "file-service://file-demo123"}
+            ]
+          }
+        }
+      },
+      "assistant-node": {
+        "id": "assistant-node",
+        "parent": "user-node",
+        "children": [],
+        "message": {
+          "author": {"role": "assistant"},
+          "create_time": 1704067260,
+          "content": {
+            "content_type": "text",
+            "parts": ["These are synthetic project notes used for documentation and tests."]
+          }
+        }
+      }
+    }
+  }
+]

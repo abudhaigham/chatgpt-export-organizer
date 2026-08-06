@@ -1,0 +1,7 @@
+{
+  "export_files": [
+    {"path": "file-demo123.dat", "size_bytes": 0},
+    {"path": "conversations-000.json", "size_bytes": 0},
+    {"path": "conversation_asset_file_names.json", "size_bytes": 0}
+  ]
+}

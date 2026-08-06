@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+chat_export_env/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Real ChatGPT export data - never commit
+/conversations-*.json
+/conversation_asset_file_names.json
+/export_manifest.json
+/library_files.json
+/shared_conversations.json
+/user_settings.json
+/chat.html
+/*.dat
+/Grouped_DAT_Files/
+/Extracted_Chats/
+/ChatGPT_DAT_Chat_Index.csv
+/Chat_Export_Report.csv
+/upload/
+/output/
+/outputs/
