@@ -9,19 +9,23 @@ from __future__ import annotations
 import argparse
 import csv
 import filecmp
+import hashlib
 import json
 import re
 import shutil
+import stat
 import sys
 import unicodedata
+import zipfile
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 from datetime import datetime, timezone
 from html import escape
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 ASSET_ID_PATTERN = re.compile(r"file[-_][A-Za-z0-9]+")
+VERSION = "1.1.0"
 
 
 def arguments() -> argparse.Namespace:
@@ -34,13 +38,35 @@ def arguments() -> argparse.Namespace:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 1.0.0",
+        version=f"%(prog)s {VERSION}",
     )
     parser.add_argument(
         "folder",
         nargs="?",
         default=".",
         help="Extracted ChatGPT export folder (default: current directory).",
+    )
+    parser.add_argument(
+        "--import-export",
+        metavar="PATH",
+        help=(
+            "Import a ChatGPT export ZIP or folder into a new protected workspace, "
+            "then process the imported snapshot."
+        ),
+    )
+    parser.add_argument(
+        "--workspace",
+        default="~/ChatGPT_Export_Organizer",
+        metavar="DIRECTORY",
+        help=(
+            "Managed import workspace (default: ~/ChatGPT_Export_Organizer). "
+            "Used only with --import-export."
+        ),
+    )
+    parser.add_argument(
+        "--import-name",
+        metavar="NAME",
+        help="Optional readable label for a managed import.",
     )
     parser.add_argument(
         "-o",
@@ -115,6 +141,119 @@ def arguments() -> argparse.Namespace:
         help="Optional Unicode TrueType font path for chat PDFs.",
     )
     return parser.parse_args()
+
+
+def safe_import_label(value: str) -> str:
+    """Return a short filesystem-safe import label."""
+    label = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip(".-_")
+    return label[:80] or "chatgpt-export"
+
+
+def unique_import_root(workspace: Path, label: str) -> Path:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    base = workspace / "imports" / f"{timestamp}__{safe_import_label(label)}"
+    candidate = base
+    number = 2
+    while candidate.exists():
+        candidate = base.with_name(f"{base.name}__{number}")
+        number += 1
+    return candidate
+
+
+def safe_extract_zip(archive: Path, destination: Path) -> None:
+    """Extract a ZIP without permitting traversal or symbolic-link entries."""
+    destination_resolved = destination.resolve()
+    with zipfile.ZipFile(archive) as stream:
+        for member in stream.infolist():
+            member_path = PurePosixPath(member.filename.replace("\\", "/"))
+            target = (destination / Path(*member_path.parts)).resolve()
+            if (
+                member_path.is_absolute()
+                or ".." in member_path.parts
+                or (destination_resolved != target and destination_resolved not in target.parents)
+            ):
+                raise ValueError(f"unsafe ZIP path: {member.filename}")
+            mode = member.external_attr >> 16
+            if stat.S_ISLNK(mode):
+                raise ValueError(
+                    f"symbolic links are not allowed in ZIP imports: {member.filename}"
+                )
+            if member.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with stream.open(member) as source_stream, target.open("wb") as target_stream:
+                shutil.copyfileobj(source_stream, target_stream)
+
+
+def export_data_root(imported_source: Path) -> Path:
+    """Locate the directory containing the split conversation JSON files."""
+    if list(imported_source.glob("conversations-*.json")):
+        return imported_source
+    parents = [path.parent for path in imported_source.rglob("conversations-*.json")]
+    if not parents:
+        raise ValueError("no conversations-*.json files were found in the imported export")
+    counts = Counter(parents)
+    return sorted(counts, key=lambda item: (-counts[item], len(item.parts), str(item)))[0]
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def prepare_managed_import(args: argparse.Namespace) -> tuple[Path, Path, Path]:
+    """Create an isolated source snapshot and results directory for one import."""
+    source = Path(args.import_export).expanduser().resolve()
+    if not source.exists():
+        raise ValueError(f"import source not found: {source}")
+    if source.is_file() and not zipfile.is_zipfile(source):
+        raise ValueError("--import-export accepts only a ZIP archive or a directory")
+
+    workspace = Path(args.workspace).expanduser().resolve()
+    if source.is_dir() and (workspace == source or source in workspace.parents):
+        raise ValueError("the managed workspace cannot be located inside the imported directory")
+    label_source = args.import_name or (source.stem if source.is_file() else source.name)
+    import_root = unique_import_root(workspace, label_source)
+    source_root = import_root / "source"
+    results_root = import_root / "results"
+    import_root.mkdir(parents=True)
+    results_root.mkdir()
+
+    try:
+        if source.is_dir():
+            if any(path.is_symlink() for path in source.rglob("*")):
+                raise ValueError("symbolic links are not allowed in directory imports")
+            shutil.copytree(source, source_root)
+        else:
+            source_root.mkdir()
+            safe_extract_zip(source, source_root)
+        data_root = export_data_root(source_root)
+    except Exception:
+        shutil.rmtree(import_root)
+        raise
+
+    manifest = {
+        "format_version": 1,
+        "software_version": VERSION,
+        "import_id": import_root.name,
+        "imported_at_utc": datetime.now(timezone.utc).isoformat(),
+        "source_type": "directory" if source.is_dir() else "zip",
+        "source_name": source.name,
+        "source_sha256": file_sha256(source) if source.is_file() else None,
+        "source_snapshot": str(source_root),
+        "export_data_root": str(data_root),
+        "results_directory": str(results_root),
+        "protection": "source snapshot preserved; managed rename and move operations disabled",
+    }
+    (import_root / "import_manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (workspace / "LATEST_IMPORT.txt").write_text(str(import_root) + "\n", encoding="utf-8")
+    return data_root, results_root, import_root
 
 
 def load_json(path: Path) -> Any:
@@ -715,7 +854,40 @@ def export_conversations(
 
 def main() -> int:
     args = arguments()
-    folder = Path(args.folder).expanduser().resolve()
+    managed_import_root: Path | None = None
+    managed_results_root: Path | None = None
+    if args.import_name and not args.import_export:
+        print("Error: --import-name requires --import-export.", file=sys.stderr)
+        return 2
+    if args.workspace != "~/ChatGPT_Export_Organizer" and not args.import_export:
+        print("Error: --workspace requires --import-export.", file=sys.stderr)
+        return 2
+    if args.import_export:
+        if args.folder != ".":
+            print(
+                "Error: do not provide the folder argument together with --import-export.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.rename or args.move:
+            print(
+                "Error: --rename and --move are disabled for managed imports to preserve "
+                "the source snapshot.",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            folder, managed_results_root, managed_import_root = prepare_managed_import(args)
+        except (OSError, ValueError, zipfile.BadZipFile) as error:
+            print(f"Error: could not import ChatGPT export: {error}", file=sys.stderr)
+            return 2
+        args.output = str(managed_results_root / "ChatGPT_DAT_Chat_Index.csv")
+        if args.group:
+            args.group = str(managed_results_root / "Grouped_DAT_Files")
+        if args.export_chats:
+            args.export_chats = str(managed_results_root / "Extracted_Chats")
+    else:
+        folder = Path(args.folder).expanduser().resolve()
     if not folder.is_dir():
         print(f"Error: folder not found: {folder}", file=sys.stderr)
         return 2
@@ -747,18 +919,11 @@ def main() -> int:
             if group_root != path.resolve() and group_root not in path.resolve().parents
         ]
     dat_names = [path.name for path in dat_paths] or discover_dat_names(folder, args.recursive)
-    if not dat_names:
-        print(f"Error: no .dat files found in {folder}", file=sys.stderr)
-        return 2
-
     dat_by_id: dict[str, str] = {}
     for name in dat_names:
         asset_id = asset_id_from_name(name)
         if asset_id:
             dat_by_id[asset_id] = name
-    if not dat_by_id:
-        print("Error: no recognizable ChatGPT asset IDs found in .dat filenames.", file=sys.stderr)
-        return 2
     known_ids = set(dat_by_id)
     paths_by_name: dict[str, list[Path]] = defaultdict(list)
     for path in dat_paths:
@@ -940,7 +1105,25 @@ def main() -> int:
                 f"[{rename_status}]{grouping}{restoration}"
             )
 
-    fieldnames = list(rows[0])
+    fieldnames = [
+        "DAT Filename",
+        "Asset ID",
+        "Original Filename",
+        "Status",
+        "Chat Count",
+        "Chat Titles",
+        "Conversation IDs",
+        "Conversation JSON Files",
+        "Reference Counts",
+        "Proposed DAT Filename",
+        "Rename Status",
+        "Proposed Group Folder",
+        "Grouped File Path",
+        "Group Status",
+        "Restored Original Filename",
+        "Restored Original Path",
+        "Original Restore Status",
+    ]
     with output.open("w", encoding="utf-8-sig", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fieldnames)
         writer.writeheader()
@@ -995,6 +1178,10 @@ def main() -> int:
     else:
         print("Chats extracted to PDF:    0 (not requested)")
     print(f"CSV report:               {output}")
+    if managed_import_root and managed_results_root:
+        print(f"Managed import directory: {managed_import_root}")
+        print(f"Protected source snapshot:{managed_import_root / 'source'}")
+        print(f"Managed results directory:{managed_results_root}")
     return 0
 
 
