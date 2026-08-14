@@ -37,6 +37,35 @@ archive or send its contents to an external service.
 - Validate PDFs and retry font-sensitive content with a compatibility fallback.
 - Resume interrupted exports without recreating valid outputs.
 - Protect against collisions, oversized filenames, and repeated prefixes.
+- Import ZIP archives or extracted exports into isolated managed workspaces.
+- Preserve every imported source snapshot and every earlier import unchanged.
+
+## Recommended managed workflow
+
+Import an exported ChatGPT ZIP directly into the default designated workspace:
+
+```bash
+chatgpt-export-organizer \
+  --import-export "/path/to/chatgpt-export.zip" \
+  --quiet \
+  --group \
+  --restore-originals \
+  --export-chats
+```
+
+The default workspace is `~/ChatGPT_Export_Organizer`. Choose another permanent
+location with `--workspace`:
+
+```bash
+chatgpt-export-organizer \
+  --import-export "/path/to/chatgpt-export.zip" \
+  --workspace "/path/to/My ChatGPT Archive" \
+  --import-name "August 2026" \
+  --quiet --group --restore-originals --export-chats
+```
+
+Every execution creates a new directory. The original ZIP, the protected imported
+snapshot, and all earlier imports remain unchanged.
 
 ## Installation
 
@@ -85,6 +114,20 @@ chatgpt-export-organizer . --quiet --export-chats
 ## Output structure
 
 ```text
+ChatGPT_Export_Organizer/
+├── LATEST_IMPORT.txt
+└── imports/
+    ├── 20260815T120000000000Z__chatgpt-export/
+    │   ├── import_manifest.json
+    │   ├── source/                 # protected imported snapshot
+    │   └── results/
+    │       ├── ChatGPT_DAT_Chat_Index.csv
+    │       ├── Grouped_DAT_Files/
+    │       └── Extracted_Chats/
+    └── 20260901T120000000000Z__chatgpt-export/
+        ├── source/                 # a separate later import
+        └── results/
+
 Grouped_DAT_Files/
 ├── Example Conversation/
 │   ├── Example Conversation__file-demo123.dat
@@ -109,6 +152,9 @@ flags:
 - `--overwrite-chat-exports` recreates existing extracted JSON and PDFs.
 
 Keep an untouched copy of the original export before using these options.
+
+In managed-import mode, `--rename` and `--move` are rejected. Generated reports,
+grouped assets, restored files, and chat PDFs are written only under `results/`.
 
 ## Documentation
 
