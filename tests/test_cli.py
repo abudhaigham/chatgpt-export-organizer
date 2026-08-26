@@ -132,9 +132,7 @@ def test_duplicate_chat_titles_receive_readable_numbers(tmp_path: Path) -> None:
     second = synthetic_conversation()
     second["id"] = "00000000-0000-0000-0000-000000000002"
     second["conversation_id"] = second["id"]
-    (tmp_path / "conversations-000.json").write_text(
-        json.dumps([first, second]), encoding="utf-8"
-    )
+    (tmp_path / "conversations-000.json").write_text(json.dumps([first, second]), encoding="utf-8")
 
     result = run_cli(tmp_path, "--quiet", "--export-chats")
     assert result.returncode == 0, result.stderr

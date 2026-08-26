@@ -34,7 +34,7 @@ def test_conversation_output_name_uses_title_without_identifier() -> None:
         "conversation_id": "6a667ee3-64e4-83ec-9f0e-2e6d8afd1476",
     }
     assert conversation_output_stem(conversation) == conversation["title"]
-    assert conversation_output_stem(conversation, 2) == f'{conversation["title"]} (2)'
+    assert conversation_output_stem(conversation, 2) == f"{conversation['title']} (2)"
 
 
 def test_canonical_messages_follow_active_branch() -> None:
