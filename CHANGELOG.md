@@ -2,6 +2,17 @@
 
 All notable changes are documented here. This project follows Semantic Versioning.
 
+## [1.2.0] - 2026-08-26
+
+### Changed
+
+- Conversation folders, JSON files, and PDFs now use human-readable ChatGPT titles
+  without internal conversation UUIDs.
+- Repeated titles receive readable `(2)`, `(3)`, and later suffixes.
+- Conversations are placed under `محادثات بلا مشروع` because the current ChatGPT
+  export format does not provide a reliable conversation-to-project relationship.
+- Conversation IDs remain preserved in extracted JSON and CSV audit reports.
+
 ## [1.1.0] - 2026-08-15
 
 ### Added

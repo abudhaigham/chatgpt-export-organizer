@@ -136,11 +136,21 @@ Grouped_DAT_Files/
     └── file-unmatched.dat
 
 Extracted_Chats/
-├── Example Conversation__conversation-id/
-│   ├── Example Conversation__conversation-id.json
-│   └── Example Conversation__conversation-id.pdf
+├── محادثات بلا مشروع/
+│   ├── Example Conversation/
+│   │   ├── Example Conversation.json
+│   │   └── Example Conversation.pdf
+│   └── Example Conversation (2)/
+│       ├── Example Conversation (2).json
+│       └── Example Conversation (2).pdf
 └── Chat_Export_Report.csv
 ```
+
+Conversation folders and files use the original ChatGPT title without exposing
+the internal conversation ID. Repeated titles receive readable `(2)`, `(3)`, and
+later suffixes. Current ChatGPT conversation exports do not include a reliable
+conversation-to-project relationship, so chats are placed under
+`محادثات بلا مشروع`; conversation IDs remain available in JSON and CSV reports.
 
 ## Safety model
 

@@ -114,6 +114,33 @@ def test_export_single_chat_to_json_and_pdf(tmp_path: Path) -> None:
     assert Path(row["Extracted JSON"]).exists()
     pdf = Path(row["PDF"])
     assert pdf.read_bytes().startswith(b"%PDF-")
+    expected_folder = tmp_path / "Extracted_Chats" / "محادثات بلا مشروع" / "Synthetic Chat"
+    assert Path(row["Extracted JSON"]) == expected_folder / "Synthetic Chat.json"
+    assert pdf == expected_folder / "Synthetic Chat.pdf"
+    assert "00000000-0000-0000-0000-000000000001" not in str(pdf)
+
+
+def test_duplicate_chat_titles_receive_readable_numbers(tmp_path: Path) -> None:
+    try:
+        import arabic_reshaper  # noqa: F401
+        import bidi  # noqa: F401
+        import reportlab  # noqa: F401
+    except ImportError:
+        pytest.skip("optional PDF dependencies are not installed")
+
+    first = synthetic_conversation()
+    second = synthetic_conversation()
+    second["id"] = "00000000-0000-0000-0000-000000000002"
+    second["conversation_id"] = second["id"]
+    (tmp_path / "conversations-000.json").write_text(
+        json.dumps([first, second]), encoding="utf-8"
+    )
+
+    result = run_cli(tmp_path, "--quiet", "--export-chats")
+    assert result.returncode == 0, result.stderr
+    root = tmp_path / "Extracted_Chats" / "محادثات بلا مشروع"
+    assert (root / "Synthetic Chat" / "Synthetic Chat.json").exists()
+    assert (root / "Synthetic Chat (2)" / "Synthetic Chat (2).json").exists()
 
 
 def write_synthetic_export(folder: Path) -> None:
