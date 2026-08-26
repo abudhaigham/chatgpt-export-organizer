@@ -31,7 +31,7 @@ def test_safe_names_remove_path_characters() -> None:
 def test_conversation_output_name_uses_title_without_identifier() -> None:
     conversation = {
         "title": "خارطة المؤسس التقني لتأسيس شركة برمجيات بالذكاء الاصطناعي",
-        "conversation_id": "6a667ee3-64e4-83ec-9f0e-2e6d8afd1476",
+        "conversation_id": "synthetic-conversation-core",
     }
     assert conversation_output_stem(conversation) == conversation["title"]
     assert conversation_output_stem(conversation, 2) == f"{conversation['title']} (2)"
