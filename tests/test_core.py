@@ -6,6 +6,7 @@ from chatgpt_export_organizer.cli import (
     asset_id_from_name,
     canonical_messages,
     conservative_pdf_text,
+    conversation_output_stem,
     proposed_dat_name,
     safe_original_filename,
     safe_title_prefix,
@@ -25,6 +26,15 @@ def test_safe_names_remove_path_characters() -> None:
     assert safe_title_prefix(["Project / Notes: 2026"]) == "Project - Notes- 2026"
     assert safe_original_filename("../../private/report.pdf") == "report.pdf"
     assert proposed_dat_name("file-demo123", ["Project Notes"]).endswith("__file-demo123.dat")
+
+
+def test_conversation_output_name_uses_title_without_identifier() -> None:
+    conversation = {
+        "title": "خارطة المؤسس التقني لتأسيس شركة برمجيات بالذكاء الاصطناعي",
+        "conversation_id": "synthetic-conversation-core",
+    }
+    assert conversation_output_stem(conversation) == conversation["title"]
+    assert conversation_output_stem(conversation, 2) == f"{conversation['title']} (2)"
 
 
 def test_canonical_messages_follow_active_branch() -> None:

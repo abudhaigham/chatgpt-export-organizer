@@ -25,7 +25,8 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 ASSET_ID_PATTERN = re.compile(r"file[-_][A-Za-z0-9]+")
-VERSION = "1.1.0"
+VERSION = "1.2.0"
+UNASSIGNED_PROJECT = "محادثات بلا مشروع"
 
 
 def arguments() -> argparse.Namespace:
@@ -603,11 +604,18 @@ def utc_time(value: Any) -> str:
     return datetime.fromtimestamp(float(value), tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
-def conversation_output_stem(conversation: dict[str, Any]) -> str:
+def conversation_output_stem(conversation: dict[str, Any], occurrence: int = 1) -> str:
+    """Return a human-readable, collision-safe output name for a conversation."""
     title = clean(conversation.get("title")) or "Untitled conversation"
-    conversation_id = clean(conversation.get("conversation_id") or conversation.get("id"))
-    safe_title = truncate_utf8(safe_title_prefix([title]), 140)
-    return f"{safe_title}__{conversation_id or 'unknown-id'}"
+    suffix = f" ({occurrence})" if occurrence > 1 else ""
+    available = 180 - len(suffix.encode("utf-8"))
+    safe_title = truncate_utf8(safe_title_prefix([title]), available)
+    return f"{safe_title}{suffix}"
+
+
+def filesystem_name_key(value: str) -> str:
+    """Normalize names for collision checks on common case-insensitive filesystems."""
+    return unicodedata.normalize("NFC", value).casefold()
 
 
 def create_conversation_pdf(
@@ -753,6 +761,8 @@ def export_conversations(
     destination.mkdir(parents=True, exist_ok=True)
     report_rows = []
     processed = 0
+    output_name_counts: Counter[str] = Counter()
+    project_destination = destination / UNASSIGNED_PROJECT
 
     for source in sources:
         try:
@@ -781,8 +791,11 @@ def export_conversations(
                 continue
             processed += 1
             title = clean(conversation.get("title")) or "Untitled conversation"
-            stem = conversation_output_stem(conversation)
-            chat_folder = destination / stem
+            base_stem = conversation_output_stem(conversation)
+            stem_key = filesystem_name_key(base_stem)
+            output_name_counts[stem_key] += 1
+            stem = conversation_output_stem(conversation, output_name_counts[stem_key])
+            chat_folder = project_destination / stem
             json_path = chat_folder / f"{stem}.json"
             pdf_path = chat_folder / f"{stem}.pdf"
             status = "Complete"

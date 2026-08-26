@@ -86,6 +86,13 @@ chatgpt-export-organizer /path/to/export --export-chats \
 Existing valid PDFs are preserved. Re-run the same command to resume an
 interrupted batch. Use `--overwrite-chat-exports` only when intentional.
 
+Exported conversation folders, JSON files, and PDFs use the original ChatGPT
+conversation title. Internal conversation IDs are retained in JSON and CSV data
+but are not exposed in output names. When titles repeat, readable suffixes such
+as `(2)` and `(3)` prevent overwriting. Because the current ChatGPT export does
+not provide a reliable conversation-to-project mapping, these outputs are placed
+under `Extracted_Chats/محادثات بلا مشروع/`.
+
 ## 7. Read reports
 
 - `ChatGPT_DAT_Chat_Index.csv`: asset mapping and file-operation audit.
