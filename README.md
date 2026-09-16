@@ -7,6 +7,22 @@
 A privacy-first command-line utility for turning a raw ChatGPT data export into an
 auditable, organized archive.
 
+Version 1.3 also includes a local desktop interface and a controlled inbox workflow.
+Place OpenAI export ZIP files in `01_Incoming_Exports`, launch
+`chatgpt-export-organizer-gui`, and select the archive to validate and process. Successful
+archives move to `02_Processed_Exports`; invalid or duplicate archives move to
+`03_Rejected_Exports` with an adjacent lifecycle record. The interface and all processing
+remain local.
+
+For a macOS application bundle, install the app dependencies and build locally:
+
+```bash
+python3 -m pip install -e ".[pdf,app]"
+python3 scripts/build_macos_app.py
+```
+
+The unsigned local application is created under `dist/ChatGPT Export Organizer.app`.
+
 It maps internal `.dat` assets to conversations, restores original filenames,
 groups assets by chat, extracts individual conversation JSON files, and creates
 readable bilingual PDFs with resumable batch processing.
@@ -53,7 +69,8 @@ chatgpt-export-organizer \
   --export-chats
 ```
 
-The default workspace is `~/ChatGPT_Export_Organizer`. Choose another permanent
+The default workspace is `~/Documents/My Training/ChatGPT Export Organizer`.
+Choose another permanent
 location with `--workspace`:
 
 ```bash
@@ -114,7 +131,10 @@ chatgpt-export-organizer . --quiet --export-chats
 ## Output structure
 
 ```text
-ChatGPT_Export_Organizer/
+ChatGPT Export Organizer/
+├── 01_Incoming_Exports/
+├── 02_Processed_Exports/
+├── 03_Rejected_Exports/
 ├── LATEST_IMPORT.txt
 └── imports/
     ├── 20260815T120000000000Z__chatgpt-export/

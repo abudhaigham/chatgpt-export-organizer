@@ -263,3 +263,80 @@ def test_managed_import_rejects_zip_path_traversal(tmp_path: Path) -> None:
     assert result.returncode == 2
     assert "unsafe ZIP path" in result.stderr
     assert not (tmp_path / "outside.txt").exists()
+
+
+def make_inbox_archive(workspace: Path, filename: str = "chatgpt-export.zip") -> Path:
+    export = workspace / "synthetic-source"
+    write_synthetic_export(export)
+    incoming = workspace / "01_Incoming_Exports"
+    incoming.mkdir(parents=True, exist_ok=True)
+    archive = incoming / filename
+    with zipfile.ZipFile(archive, "w") as stream:
+        for path in export.iterdir():
+            stream.write(path, arcname=path.name)
+    return archive
+
+
+def test_inbox_import_moves_archive_only_after_success(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    archive = make_inbox_archive(workspace)
+
+    result = run_cli(
+        None,
+        "--process-inbox",
+        archive.name,
+        "--workspace",
+        str(workspace),
+        "--quiet",
+    )
+    assert result.returncode == 0, result.stderr
+    assert not archive.exists()
+    processed = workspace / "02_Processed_Exports" / archive.name
+    assert processed.exists()
+    assert processed.with_suffix(".zip.processed.json").exists()
+    imported = next((workspace / "imports").iterdir())
+    assert (imported / "IMPORT_COMPLETE.json").exists()
+    assert (imported / "results" / "ChatGPT_DAT_Chat_Index.csv").exists()
+
+
+def test_inbox_rejects_invalid_and_duplicate_archives(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    incoming = workspace / "01_Incoming_Exports"
+    incoming.mkdir(parents=True)
+    invalid = incoming / "broken.zip"
+    invalid.write_bytes(b"PK\x03\x04incomplete")
+
+    rejected = run_cli(
+        None,
+        "--process-inbox",
+        invalid.name,
+        "--workspace",
+        str(workspace),
+    )
+    assert rejected.returncode == 2
+    assert not invalid.exists()
+    assert (workspace / "03_Rejected_Exports" / invalid.name).exists()
+
+    archive = make_inbox_archive(workspace)
+    first = run_cli(
+        None,
+        "--process-inbox",
+        archive.name,
+        "--workspace",
+        str(workspace),
+        "--quiet",
+    )
+    assert first.returncode == 0, first.stderr
+    processed = workspace / "02_Processed_Exports" / archive.name
+    duplicate = incoming / archive.name
+    duplicate.write_bytes(processed.read_bytes())
+    second = run_cli(
+        None,
+        "--process-inbox",
+        duplicate.name,
+        "--workspace",
+        str(workspace),
+    )
+    assert second.returncode == 2
+    assert "duplicate" in second.stderr
+    assert not duplicate.exists()
