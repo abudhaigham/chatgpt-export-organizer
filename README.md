@@ -7,12 +7,14 @@
 A privacy-first command-line utility for turning a raw ChatGPT data export into an
 auditable, organized archive.
 
-Version 1.3 also includes a local desktop interface and a controlled inbox workflow.
+Version 1.4 includes a local desktop interface, a controlled inbox workflow, and
+evidence-based extraction of binary `.dat` assets into useful file types.
 Place OpenAI export ZIP files in `01_Incoming_Exports`, launch
 `chatgpt-export-organizer-gui`, and select the archive to validate and process. Successful
 archives move to `02_Processed_Exports`; invalid or duplicate archives move to
 `03_Rejected_Exports` with an adjacent lifecycle record. The interface and all processing
-remain local.
+remain local. Each accepted export receives its own isolated import directory, so previous
+imports and results remain available.
 
 For a macOS application bundle, install the app dependencies and build locally:
 
@@ -55,6 +57,11 @@ archive or send its contents to an external service.
 - Protect against collisions, oversized filenames, and repeated prefixes.
 - Import ZIP archives or extracted exports into isolated managed workspaces.
 - Preserve every imported source snapshot and every earlier import unchanged.
+- Detect common image, document, archive, audio, and video types stored as `.dat` files.
+- Copy detected files into type-based folders without modifying the source export.
+- Record SHA-256, conversation references, role associations, and cautious origin labels
+  in `Asset_Inventory.csv`.
+- Use a refreshed Arabic desktop interface with visible processing stages and operation log.
 
 ## Recommended managed workflow
 
@@ -66,7 +73,8 @@ chatgpt-export-organizer \
   --quiet \
   --group \
   --restore-originals \
-  --export-chats
+  --export-chats \
+  --extract-assets
 ```
 
 The default workspace is `~/Documents/My Training/ChatGPT Export Organizer`.
@@ -78,7 +86,7 @@ chatgpt-export-organizer \
   --import-export "/path/to/chatgpt-export.zip" \
   --workspace "/path/to/My ChatGPT Archive" \
   --import-name "August 2026" \
-  --quiet --group --restore-originals --export-chats
+  --quiet --group --restore-originals --export-chats --extract-assets
 ```
 
 Every execution creates a new directory. The original ZIP, the protected imported
@@ -128,6 +136,16 @@ Extract every chat and create readable PDFs:
 chatgpt-export-organizer . --quiet --export-chats
 ```
 
+Extract `.dat` assets into detected file types and create an auditable inventory:
+
+```bash
+chatgpt-export-organizer . --quiet --extract-assets
+```
+
+The default extraction directory is `ChatGPT_Files`. Supply a directory name after the
+option to use a different output location. Classification labels intentionally remain
+conservative: message-role association is not proof of who created or uploaded a file.
+
 ## Output structure
 
 ```text
@@ -143,6 +161,14 @@ ChatGPT Export Organizer/
     │   └── results/
     │       ├── ChatGPT_DAT_Chat_Index.csv
     │       ├── Grouped_DAT_Files/
+    │       ├── ChatGPT_Files/
+    │       │   ├── Asset_Inventory.csv
+    │       │   ├── Images/
+    │       │   ├── Documents/
+    │       │   ├── Archives/
+    │       │   ├── Audio/
+    │       │   ├── Video/
+    │       │   └── Other/
     │       └── Extracted_Chats/
     └── 20260901T120000000000Z__chatgpt-export/
         ├── source/                 # a separate later import
@@ -186,7 +212,8 @@ flags:
 Keep an untouched copy of the original export before using these options.
 
 In managed-import mode, `--rename` and `--move` are rejected. Generated reports,
-grouped assets, restored files, and chat PDFs are written only under `results/`.
+grouped assets, restored files, typed asset copies, inventories, and chat PDFs are written
+only under `results/`.
 
 ## Documentation
 
