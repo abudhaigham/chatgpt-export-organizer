@@ -86,6 +86,26 @@ def test_scan_and_group_synthetic_asset(tmp_path: Path) -> None:
     assert (group / "notes.txt").read_bytes() == b"synthetic"
 
 
+def test_cli_extracts_typed_asset_inventory(tmp_path: Path) -> None:
+    asset = tmp_path / "file-demo123.dat"
+    asset.write_bytes(b"%PDF-synthetic")
+    (tmp_path / "conversations-000.json").write_text(
+        json.dumps([synthetic_conversation()]), encoding="utf-8"
+    )
+    (tmp_path / "conversation_asset_file_names.json").write_text(
+        json.dumps({"file-demo123.dat": "notes.pdf"}), encoding="utf-8"
+    )
+
+    result = run_cli(tmp_path, "--quiet", "--extract-assets")
+    assert result.returncode == 0, result.stderr
+    inventory = tmp_path / "ChatGPT_Files" / "Asset_Inventory.csv"
+    with inventory.open(encoding="utf-8-sig") as stream:
+        row = next(csv.DictReader(stream))
+    assert row["detected_extension"] == ".pdf"
+    assert row["origin_classification"] == "ORIGIN_UNCERTAIN"
+    assert Path(row["extracted_path"]).read_bytes() == asset.read_bytes()
+
+
 def test_export_single_chat_to_json_and_pdf(tmp_path: Path) -> None:
     try:
         import arabic_reshaper  # noqa: F401

@@ -24,6 +24,7 @@ from html import escape
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .assets import extract_assets
 from .inbox import (
     default_workspace,
     ensure_inbox_layout,
@@ -148,6 +149,17 @@ def arguments(argv: list[str] | None = None) -> argparse.Namespace:
         help=(
             "With --group, create an additional copy using the original filename "
             "and extension recorded in conversation_asset_file_names.json."
+        ),
+    )
+    parser.add_argument(
+        "--extract-assets",
+        nargs="?",
+        const="ChatGPT_Files",
+        metavar="DIRECTORY",
+        help=(
+            "Copy every DAT asset using its original name when available or its "
+            "detected content type, and write Asset_Inventory.csv. Default destination: "
+            "<folder>/ChatGPT_Files. Origin is not asserted without explicit evidence."
         ),
     )
     parser.add_argument(
@@ -977,6 +989,8 @@ def main(argv: list[str] | None = None) -> int:
             args.group = str(managed_results_root / "Grouped_DAT_Files")
         if args.export_chats:
             args.export_chats = str(managed_results_root / "Extracted_Chats")
+        if args.extract_assets:
+            args.extract_assets = str(managed_results_root / "ChatGPT_Files")
     else:
         folder = Path(args.folder).expanduser().resolve()
     if not folder.is_dir():
@@ -1220,6 +1234,19 @@ def main(argv: list[str] | None = None) -> int:
         writer.writeheader()
         writer.writerows(rows)
 
+    asset_extraction_result: dict[str, Any] | None = None
+    asset_extraction_root: Path | None = None
+    if args.extract_assets:
+        requested_assets = Path(args.extract_assets).expanduser()
+        asset_extraction_root = (
+            requested_assets if requested_assets.is_absolute() else folder / requested_assets
+        ).resolve()
+        try:
+            asset_extraction_result = extract_assets(folder, asset_extraction_root)
+        except OSError as error:
+            print(f"Error: could not extract assets: {error}", file=sys.stderr)
+            return 2
+
     chat_export_result: dict[str, Any] | None = None
     chat_export_root: Path | None = None
     if args.export_chats:
@@ -1258,6 +1285,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Original names unavailable:   {originals_unavailable:,}")
     else:
         print("Original-name copies made: 0 (not requested)")
+    if asset_extraction_result and asset_extraction_root:
+        print(f"Assets inventoried:           {asset_extraction_result['examined']:,}")
+        print(f"Asset copies created:         {asset_extraction_result['copied']:,}")
+        print(f"Identical asset copies kept:  {asset_extraction_result['existing']:,}")
+        print(f"Organized assets directory:   {asset_extraction_root}")
+        print(f"Asset inventory:              {asset_extraction_result['inventory']}")
+    else:
+        print("Assets inventoried:        0 (not requested)")
     if chat_export_result and chat_export_root:
         print(f"Chats selected for export:    {chat_export_result['processed']:,}")
         print(f"Chat PDFs created:            {chat_export_result['succeeded']:,}")
