@@ -24,12 +24,33 @@ from html import escape
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .inbox import (
+    default_workspace,
+    ensure_inbox_layout,
+    imported_digests,
+    inspect_archive,
+    move_with_record,
+    record_import_completion,
+    select_inbox_archive,
+)
+
 ASSET_ID_PATTERN = re.compile(r"file[-_][A-Za-z0-9]+")
-VERSION = "1.2.0"
-UNASSIGNED_PROJECT = "محادثات بلا مشروع"
+VERSION = "1.3.0"
+DEFAULT_WORKSPACE = str(default_workspace())
+PROJECT_CLASSIFICATION_UNAVAILABLE = "جميع المحادثات — تصنيف المشروع غير متاح في تصدير OpenAI"
+PROJECT_CLASSIFICATION_NOTICE = """Project classification unavailable
+
+The OpenAI export does not provide a reliable conversation-to-project mapping.
+All exported conversations are stored together without guessing project membership.
+
+تصنيف المشاريع غير متاح
+
+لا يتضمن تصدير OpenAI علاقة موثوقة بين المحادثات والمشاريع. لذلك حُفظت جميع
+المحادثات معًا دون تخمين المشروع، مع الحفاظ على عناوينها ومعرفاتها في JSON وCSV.
+"""
 
 
-def arguments() -> argparse.Namespace:
+def arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Map and organize ChatGPT export assets, restore original filenames, "
@@ -56,12 +77,24 @@ def arguments() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--process-inbox",
+        nargs="?",
+        const="",
+        metavar="FILENAME",
+        help=(
+            "Process one ZIP from <workspace>/01_Incoming_Exports. If multiple ZIP files "
+            "exist, provide the exact filename. Valid archives move to 02_Processed_Exports "
+            "after success; invalid archives move to 03_Rejected_Exports with a report."
+        ),
+    )
+    parser.add_argument(
         "--workspace",
-        default="~/ChatGPT_Export_Organizer",
+        default=DEFAULT_WORKSPACE,
         metavar="DIRECTORY",
         help=(
-            "Managed import workspace (default: ~/ChatGPT_Export_Organizer). "
-            "Used only with --import-export."
+            "Managed import workspace (default: "
+            "~/Documents/My Training/ChatGPT Export Organizer). Used with "
+            "--import-export and --process-inbox."
         ),
     )
     parser.add_argument(
@@ -141,7 +174,7 @@ def arguments() -> argparse.Namespace:
         "--font",
         help="Optional Unicode TrueType font path for chat PDFs.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def safe_import_label(value: str) -> str:
@@ -762,7 +795,9 @@ def export_conversations(
     report_rows = []
     processed = 0
     output_name_counts: Counter[str] = Counter()
-    project_destination = destination / UNASSIGNED_PROJECT
+    project_destination = destination / PROJECT_CLASSIFICATION_UNAVAILABLE
+    notice_path = destination / "PROJECT_CLASSIFICATION_NOTICE.txt"
+    notice_path.write_text(PROJECT_CLASSIFICATION_NOTICE, encoding="utf-8")
 
     for source in sources:
         try:
@@ -776,6 +811,7 @@ def export_conversations(
                     "Message Count": "",
                     "Extracted JSON": "",
                     "PDF": "",
+                    "Project Classification": "Unavailable in OpenAI export",
                     "Status": "Source failed",
                     "Error": clean(error),
                 }
@@ -832,6 +868,7 @@ def export_conversations(
                     "Message Count": message_count,
                     "Extracted JSON": str(json_path),
                     "PDF": str(pdf_path),
+                    "Project Classification": "Unavailable in OpenAI export",
                     "Status": status,
                     "Error": error_text,
                 }
@@ -847,6 +884,7 @@ def export_conversations(
         "Message Count",
         "Extracted JSON",
         "PDF",
+        "Project Classification",
         "Status",
         "Error",
     ]
@@ -865,14 +903,54 @@ def export_conversations(
     }
 
 
-def main() -> int:
-    args = arguments()
+def main(argv: list[str] | None = None) -> int:
+    args = arguments(argv)
     managed_import_root: Path | None = None
     managed_results_root: Path | None = None
+    inbox_source: Path | None = None
+    inbox_inspection = None
+    if args.process_inbox is not None:
+        if args.import_export:
+            print(
+                "Error: use either --process-inbox or --import-export, not both.", file=sys.stderr
+            )
+            return 2
+        workspace = Path(args.workspace).expanduser().resolve()
+        paths = ensure_inbox_layout(workspace)
+        try:
+            inbox_source = select_inbox_archive(workspace, args.process_inbox or None)
+            inbox_inspection = inspect_archive(inbox_source)
+            if not inbox_inspection.valid:
+                rejected = move_with_record(
+                    inbox_source,
+                    paths["rejected"],
+                    inbox_inspection,
+                    "REJECTED",
+                    inbox_inspection.error,
+                )
+                print(
+                    f"Error: invalid inbox archive moved to {rejected}: {inbox_inspection.error}",
+                    file=sys.stderr,
+                )
+                return 2
+            if inbox_inspection.sha256 in imported_digests(workspace):
+                rejected = move_with_record(
+                    inbox_source,
+                    paths["rejected"],
+                    inbox_inspection,
+                    "DUPLICATE",
+                    "an import manifest already records this SHA-256",
+                )
+                print(f"Error: duplicate inbox archive moved to {rejected}.", file=sys.stderr)
+                return 2
+        except (OSError, ValueError) as error:
+            print(f"Error: could not select inbox archive: {error}", file=sys.stderr)
+            return 2
+        args.import_export = str(inbox_source)
     if args.import_name and not args.import_export:
         print("Error: --import-name requires --import-export.", file=sys.stderr)
         return 2
-    if args.workspace != "~/ChatGPT_Export_Organizer" and not args.import_export:
+    if args.workspace != DEFAULT_WORKSPACE and not args.import_export:
         print("Error: --workspace requires --import-export.", file=sys.stderr)
         return 2
     if args.import_export:
@@ -1188,6 +1266,7 @@ def main() -> int:
         print(f"Conversation source failures: {chat_export_result['source_failed']:,}")
         print(f"Extracted chats directory:    {chat_export_root}")
         print(f"Chat export report:           {chat_export_result['report']}")
+        print("Project classification:       unavailable in OpenAI export")
     else:
         print("Chats extracted to PDF:    0 (not requested)")
     print(f"CSV report:               {output}")
@@ -1195,6 +1274,20 @@ def main() -> int:
         print(f"Managed import directory: {managed_import_root}")
         print(f"Protected source snapshot:{managed_import_root / 'source'}")
         print(f"Managed results directory:{managed_results_root}")
+    if inbox_source and inbox_inspection:
+        paths = ensure_inbox_layout(Path(args.workspace))
+        if managed_import_root is None:
+            print("Error: inbox import completed without a managed import record.", file=sys.stderr)
+            return 2
+        record_import_completion(managed_import_root, inbox_inspection)
+        processed = move_with_record(
+            inbox_source,
+            paths["processed"],
+            inbox_inspection,
+            "PROCESSED",
+            f"managed import completed: {managed_import_root}",
+        )
+        print(f"Processed inbox archive: {processed}")
     return 0
 
 

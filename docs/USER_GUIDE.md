@@ -91,7 +91,9 @@ conversation title. Internal conversation IDs are retained in JSON and CSV data
 but are not exposed in output names. When titles repeat, readable suffixes such
 as `(2)` and `(3)` prevent overwriting. Because the current ChatGPT export does
 not provide a reliable conversation-to-project mapping, these outputs are placed
-under `Extracted_Chats/محادثات بلا مشروع/`.
+under `Extracted_Chats/جميع المحادثات — تصنيف المشروع غير متاح في تصدير OpenAI/`.
+The accompanying `PROJECT_CLASSIFICATION_NOTICE.txt` explains this source-data
+limitation and confirms that the organizer does not guess project membership.
 
 ## 7. Read reports
 

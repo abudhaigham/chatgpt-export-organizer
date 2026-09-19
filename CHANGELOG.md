@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0 - Unreleased
+
+- Add a controlled export inbox with separate processed and rejected archive folders.
+- Validate every ZIP member before import and quarantine incomplete archives with a JSON report.
+- Prevent completed export archives from being imported twice by recording their SHA-256 digest.
+- Add a local Arabic macOS desktop interface for validation, import, processing, and opening results.
+- Add a PyInstaller build helper for `ChatGPT Export Organizer.app`.
+
 All notable changes are documented here. This project follows Semantic Versioning.
 
 ## [1.2.0] - 2026-08-26

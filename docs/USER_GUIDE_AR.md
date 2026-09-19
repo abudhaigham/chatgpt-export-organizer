@@ -1,7 +1,37 @@
 # دليلك من البداية إلى النهاية
 ## ChatGPT Export Organizer — من طلب البيانات إلى قراءة النتائج
 
-دليل عملي بالعربية لأجهزة Mac · الإصدار المشروح: **1.2.0** · تاريخ المراجعة: **13 سبتمبر 2026**
+دليل عملي بالعربية لأجهزة Mac · الإصدار المشروح: **1.3.0** · تاريخ المراجعة: **16 سبتمبر 2026**
+
+## التشغيل من نافذة macOS
+
+ينشئ الإصدار 1.3 بنية واضحة داخل مساحة العمل:
+
+```text
+01_Incoming_Exports/
+02_Processed_Exports/
+03_Rejected_Exports/
+imports/
+```
+
+ضع حزمة `chatgpt-export.zip` داخل `01_Incoming_Exports`، ثم افتح تطبيق
+`ChatGPT Export Organizer.app`. تعرض النافذة الحزم الموجودة ولا تختار عشوائياً عند وجود
+أكثر من حزمة. زر **فحص الحزمة** يقرأ جميع أعضاء ZIP ويتحقق من اكتمالها. زر
+**بدء الاستيراد والتنظيم** ينفذ الاستيراد المحمي والخيارات المحددة.
+
+لا تنتقل الحزمة إلى `02_Processed_Exports` إلا بعد نجاح العملية. الحزمة التالفة أو المكررة
+تنتقل إلى `03_Rejected_Exports` وبجانبها سجل JSON يوضح السبب. تحفظ كل دفعة ونتائجها تحت
+`imports` كما في الإصدارات السابقة.
+
+لبناء التطبيق محلياً مرة واحدة من جذر المستودع:
+
+```bash
+python3 -m pip install -e ".[pdf,app]"
+python3 scripts/build_macos_app.py
+```
+
+ستجد التطبيق في `dist/ChatGPT Export Organizer.app`. تبقى واجهة الأوامر متاحة للصيانة
+والاختبارات، لكن التشغيل اليومي لا يحتاج إلى Terminal بعد إنشاء التطبيق.
 
 **النتيجة التي ستصل إليها:** نسخة محفوظة من بيانات التصدير، ومجلدات للمرفقات المرتبطة بالمحادثات، وملفات JSON وPDF للمحادثات، وتقريران لمراجعة ما نجح وما يحتاج متابعة.
 
@@ -44,7 +74,7 @@ chatgpt-export.zip
 فيصبح مساره في هذا المثال:
 
 ```text
-/Users/mohammadalhajri/Downloads/chatgpt-export.zip
+~/Downloads/chatgpt-export.zip
 ```
 
 إذا اخترت اسماً أو مكاناً آخر، غيّر مسار الملف في أمر الاستيراد فقط. احتفظ بامتداد `.zip`، ولا تضفه مرتين إذا كان Finder يخفي الامتداد.
@@ -64,7 +94,7 @@ chatgpt-export.zip
 ### أ. الدخول إلى مجلد المشروع
 
 ```bash
-cd "/Users/mohammadalhajri/Documents/My Training/ChatGPT Export Organizer/chatgpt-export-organizer"
+cd "$HOME/Documents/My Training/ChatGPT Export Organizer/chatgpt-export-organizer"
 ```
 
 هذا هو **جذر المشروع** وفيه `pyproject.toml`. مجلد `src/chatgpt_export_organizer` يحتوي الكود الداخلي ولا تحتاج إلى الدخول إليه. علامات الاقتباس تسمح بوجود مسافات في المسار؛ لا تضف إليها الشرطات العكسية التي يستخدمها Terminal أحياناً لعرض المسافات.
@@ -103,8 +133,8 @@ python3 -m venv .venv-local
 
 ```bash
 .venv-local/bin/python -m chatgpt_export_organizer \
-  --import-export "/Users/mohammadalhajri/Downloads/chatgpt-export.zip" \
-  --workspace "/Users/mohammadalhajri/Documents/My Training/ChatGPT Export Organizer/ChatGPT_Export_Organizer" \
+  --import-export "$HOME/Downloads/chatgpt-export.zip" \
+  --workspace "$HOME/Documents/My Training/ChatGPT Export Organizer" \
   --import-name "September-2026" \
   --recursive --quiet --group --restore-originals --export-chats
 ```
@@ -133,13 +163,16 @@ python3 -m venv .venv-local
 من Finder، اختر **Go → Go to Folder** أو اضغط **Shift + Command + G**، ثم الصق:
 
 ```text
-/Users/mohammadalhajri/Documents/My Training/ChatGPT Export Organizer/ChatGPT_Export_Organizer
+~/Documents/My Training/ChatGPT Export Organizer
 ```
 
 ستجد بنية تشبه:
 
 ```text
-ChatGPT_Export_Organizer/
+ChatGPT Export Organizer/
+├── 01_Incoming_Exports/
+├── 02_Processed_Exports/
+├── 03_Rejected_Exports/
 ├── LATEST_IMPORT.txt
 └── imports/
     └── <وقت الاستيراد>__September-2026/
@@ -150,7 +183,8 @@ ChatGPT_Export_Organizer/
             ├── Grouped_DAT_Files/
             └── Extracted_Chats/
                 ├── Chat_Export_Report.csv
-                └── محادثات بلا مشروع/
+                ├── PROJECT_CLASSIFICATION_NOTICE.txt
+                └── جميع المحادثات — تصنيف المشروع غير متاح في تصدير OpenAI/
                     └── <عنوان المحادثة>/
                         ├── <عنوان المحادثة>.json
                         └── <عنوان المحادثة>.pdf
@@ -165,7 +199,7 @@ ChatGPT_Export_Organizer/
 | `Grouped_DAT_Files/` | المرفقات المنظمة والنسخ ذات الأسماء الأصلية عند توفرها. |
 | `_Unmatched/` | مرفقات لم يجد البرنامج ارتباطاً لها بالمحادثات؛ يظهر عند وجود ملفات من هذا النوع. |
 
-في هذا الإصدار، توضع المحادثات تحت **«محادثات بلا مشروع»** لعدم وجود ربط موثوق بالمشاريع يعتمد عليه البرنامج. الاسم لا يعني أن محادثاتك لم تكن ضمن مشاريع في ChatGPT. تكرار العناوين يعالج بإضافات مثل `(2)` و`(3)`.
+في هذا الإصدار، توضع المحادثات تحت **«جميع المحادثات — تصنيف المشروع غير متاح في تصدير OpenAI»** لعدم وجود ربط موثوق بالمشاريع يعتمد عليه البرنامج. ويسجل ملف `PROJECT_CLASSIFICATION_NOTICE.txt` هذا القيد صراحةً. لا يعني ذلك أن محادثاتك لم تكن ضمن مشاريع في ChatGPT، ولا يخمّن البرنامج عضوية المشروع. تكرار العناوين يعالج بإضافات مثل `(2)` و`(3)`.
 
 ## 6. التحقق من اكتمال العملية
 
@@ -285,6 +319,6 @@ ChatGPT_Export_Organizer/
 
 ## أساس هذا الدليل والتحقق منه
 
-خطوات طلب التصدير مستندة إلى رابط OpenAI الرسمي في القسم 1. أوامر المعالجة ووصف التقارير مستندان إلى `src/chatgpt_export_organizer/cli.py` و`pyproject.toml` في الإصدار 1.2.0.
+خطوات طلب التصدير مستندة إلى رابط OpenAI الرسمي في القسم 1. أوامر المعالجة ووصف التقارير مستندان إلى `src/chatgpt_export_organizer/cli.py` و`pyproject.toml` في الإصدار 1.3.0.
 
 جُرّب مسار الاستيراد والتصدير على بيانات اصطناعية في مجلد مؤقت، وأُنشئ PDF وتقريران دون إخفاق في تصدير المحادثة. المثال المرفق بالمشروع لا يتضمن ملف DAT فعلياً، لذلك لا يُعد هذا الاختبار إثباتاً لنسخ المرفقات أو اكتمال بياناتك الحقيقية. لا يحتاج إعداد الدليل إلى تشغيل المعالجة على أرشيفك الخاص.
