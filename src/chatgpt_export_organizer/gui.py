@@ -13,6 +13,19 @@ from typing import Any
 
 from .inbox import default_workspace, ensure_inbox_layout, incoming_archives, inspect_archive
 
+APP_COLORS = {
+    "navy": "#0B1F33",
+    "navy_soft": "#153852",
+    "teal": "#10A37F",
+    "teal_dark": "#087A60",
+    "canvas": "#F3F7F9",
+    "card": "#FFFFFF",
+    "border": "#D7E2E8",
+    "text": "#163047",
+    "muted": "#607789",
+    "success": "#DDF7EE",
+}
+
 
 def human_size(size: int) -> str:
     value = float(size)
@@ -34,8 +47,9 @@ class OrganizerWindow:
         self.messagebox = messagebox
         self.root = root
         self.root.title("ChatGPT Export Organizer")
-        self.root.geometry("820x610")
-        self.root.minsize(720, 520)
+        self.root.geometry("980x760")
+        self.root.minsize(820, 680)
+        self.root.configure(background=APP_COLORS["canvas"])
         self.events: queue.Queue[tuple[str, Any]] = queue.Queue()
         self.working = False
         self.archives: list[Path] = []
@@ -47,15 +61,48 @@ class OrganizerWindow:
         self.restore_originals = tk.BooleanVar(value=True)
         self.extract_assets = tk.BooleanVar(value=True)
 
-        outer = ttk.Frame(root, padding=18)
-        outer.pack(fill="both", expand=True)
-        ttk.Label(outer, text="منظّم تصدير ChatGPT", font=("Helvetica", 22, "bold")).pack(anchor="e")
-        ttk.Label(
-            outer,
-            text="ضع حزمة OpenAI داخل صندوق الوارد، ثم افحصها وابدأ الاستيراد.",
-        ).pack(anchor="e", pady=(4, 18))
+        self.configure_styles()
 
-        workspace_frame = ttk.LabelFrame(outer, text="مساحة العمل", padding=10)
+        header = tk.Frame(root, background=APP_COLORS["navy"], height=104)
+        header.pack(fill="x")
+        header.pack_propagate(False)
+        brand = tk.Frame(header, background=APP_COLORS["navy"])
+        brand.pack(fill="both", expand=True, padx=24, pady=12)
+        logo = tk.Canvas(
+            brand,
+            width=72,
+            height=72,
+            background=APP_COLORS["navy"],
+            highlightthickness=0,
+        )
+        logo.pack(side="right", padx=(18, 0))
+        logo.create_oval(5, 5, 67, 67, fill=APP_COLORS["teal"], outline="")
+        logo.create_text(36, 36, text="CO", fill="white", font=("Helvetica", 17, "bold"))
+        heading = tk.Frame(brand, background=APP_COLORS["navy"])
+        heading.pack(side="right", fill="both", expand=True)
+        tk.Label(
+            heading,
+            text="منظّم تصدير ChatGPT",
+            background=APP_COLORS["navy"],
+            foreground="white",
+            font=("Helvetica", 25, "bold"),
+            anchor="e",
+        ).pack(fill="x")
+        tk.Label(
+            heading,
+            text="استيراد آمن • تنظيم ذكي • خصوصية محلية",
+            background=APP_COLORS["navy"],
+            foreground="#C8D8E4",
+            font=("Helvetica", 13),
+            anchor="e",
+        ).pack(fill="x", pady=(7, 0))
+
+        outer = ttk.Frame(root, padding=(20, 12), style="Canvas.TFrame")
+        outer.pack(fill="both", expand=True)
+
+        workspace_frame = ttk.LabelFrame(
+            outer, text="  1  مساحة العمل  ", padding=10, style="Card.TLabelframe"
+        )
         workspace_frame.pack(fill="x")
         ttk.Entry(workspace_frame, textvariable=self.workspace).pack(
             side="left", fill="x", expand=True
@@ -67,15 +114,36 @@ class OrganizerWindow:
             side="left", padx=(8, 0)
         )
 
-        archive_frame = ttk.LabelFrame(outer, text="حزم ZIP الموجودة في صندوق الوارد", padding=10)
-        archive_frame.pack(fill="both", expand=True, pady=12)
-        self.archive_list = tk.Listbox(archive_frame, height=8, exportselection=False)
+        archive_frame = ttk.LabelFrame(
+            outer,
+            text="  2  اختر حزمة ZIP من صندوق الوارد  ",
+            padding=10,
+            style="Card.TLabelframe",
+        )
+        archive_frame.pack(fill="both", expand=True, pady=8)
+        self.archive_list = tk.Listbox(
+            archive_frame,
+            height=4,
+            exportselection=False,
+            background="#F8FBFC",
+            foreground=APP_COLORS["text"],
+            selectbackground=APP_COLORS["teal"],
+            selectforeground="white",
+            highlightbackground=APP_COLORS["border"],
+            highlightcolor=APP_COLORS["teal"],
+            highlightthickness=1,
+            borderwidth=0,
+            font=("Helvetica", 12),
+            activestyle="none",
+        )
         self.archive_list.pack(fill="both", expand=True)
         ttk.Button(archive_frame, text="تحديث القائمة", command=self.refresh).pack(
-            anchor="e", pady=(8, 0)
+            anchor="e", pady=(5, 0)
         )
 
-        options = ttk.LabelFrame(outer, text="خيارات المعالجة", padding=10)
+        options = ttk.LabelFrame(
+            outer, text="  3  خيارات المعالجة  ", padding=10, style="Card.TLabelframe"
+        )
         options.pack(fill="x")
         ttk.Checkbutton(
             options, text="إنشاء ملفات المحادثات JSON وPDF", variable=self.export_chats
@@ -95,25 +163,122 @@ class OrganizerWindow:
         ).pack(anchor="e")
 
         actions = ttk.Frame(outer)
-        actions.pack(fill="x", pady=12)
-        self.validate_button = ttk.Button(actions, text="فحص الحزمة", command=self.validate)
+        actions.pack(fill="x", pady=8)
+        self.validate_button = ttk.Button(
+            actions, text="فحص سلامة الحزمة", command=self.validate, style="Secondary.TButton"
+        )
         self.validate_button.pack(side="right")
-        self.run_button = ttk.Button(actions, text="بدء الاستيراد والتنظيم", command=self.run)
+        self.run_button = ttk.Button(
+            actions,
+            text="بدء الاستيراد والتنظيم",
+            command=self.run,
+            style="Primary.TButton",
+        )
         self.run_button.pack(side="right", padx=8)
         ttk.Button(actions, text="فتح أحدث النتائج", command=self.open_latest_results).pack(
             side="left"
         )
 
-        self.progress = ttk.Progressbar(outer, mode="indeterminate")
+        self.progress = ttk.Progressbar(
+            outer, mode="indeterminate", style="Accent.Horizontal.TProgressbar"
+        )
         self.progress.pack(fill="x")
-        ttk.Label(outer, textvariable=self.status).pack(anchor="e", pady=(6, 4))
-        self.log = tk.Text(outer, height=8, wrap="word", state="disabled")
+        self.status_label = tk.Label(
+            outer,
+            textvariable=self.status,
+            background=APP_COLORS["success"],
+            foreground=APP_COLORS["teal_dark"],
+            font=("Helvetica", 11, "bold"),
+            anchor="e",
+            padx=12,
+            pady=7,
+        )
+        self.status_label.pack(fill="x", pady=(6, 6))
+        self.log = tk.Text(
+            outer,
+            height=5,
+            wrap="word",
+            state="disabled",
+            background="#10283D",
+            foreground="#D8E7F0",
+            insertbackground="white",
+            highlightthickness=0,
+            borderwidth=0,
+            padx=12,
+            pady=10,
+            font=("Menlo", 10),
+        )
         self.log.pack(fill="both", expand=True)
 
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         ensure_inbox_layout(Path(self.workspace.get()))
         self.refresh()
         self.root.after(150, self.poll_events)
+
+    def configure_styles(self) -> None:
+        style = self.ttk.Style(self.root)
+        if "clam" in style.theme_names():
+            style.theme_use("clam")
+        style.configure("Canvas.TFrame", background=APP_COLORS["canvas"])
+        style.configure("TFrame", background=APP_COLORS["canvas"])
+        style.configure(
+            "TButton",
+            background=APP_COLORS["card"],
+            foreground=APP_COLORS["text"],
+            bordercolor=APP_COLORS["border"],
+        )
+        style.map("TButton", background=[("active", "#E7F0F3")])
+        style.configure(
+            "TEntry",
+            fieldbackground=APP_COLORS["card"],
+            foreground=APP_COLORS["text"],
+            bordercolor=APP_COLORS["border"],
+        )
+        style.configure(
+            "Card.TLabelframe",
+            background=APP_COLORS["card"],
+            bordercolor=APP_COLORS["border"],
+            relief="solid",
+        )
+        style.configure(
+            "Card.TLabelframe.Label",
+            background=APP_COLORS["canvas"],
+            foreground=APP_COLORS["teal_dark"],
+            font=("Helvetica", 12, "bold"),
+        )
+        style.configure(
+            "TCheckbutton",
+            background=APP_COLORS["card"],
+            foreground=APP_COLORS["text"],
+            padding=(2, 2),
+        )
+        style.map("TCheckbutton", background=[("active", APP_COLORS["card"])])
+        style.configure(
+            "Primary.TButton",
+            background=APP_COLORS["teal"],
+            foreground="white",
+            bordercolor=APP_COLORS["teal_dark"],
+            font=("Helvetica", 12, "bold"),
+            padding=(18, 10),
+        )
+        style.map(
+            "Primary.TButton",
+            background=[("active", APP_COLORS["teal_dark"]), ("disabled", "#9CBAB2")],
+            foreground=[("disabled", "#EAF3F0")],
+        )
+        style.configure(
+            "Secondary.TButton",
+            background=APP_COLORS["card"],
+            foreground=APP_COLORS["text"],
+            bordercolor=APP_COLORS["border"],
+            font=("Helvetica", 11),
+            padding=(14, 9),
+        )
+        style.configure(
+            "Accent.Horizontal.TProgressbar",
+            background=APP_COLORS["teal"],
+            troughcolor=APP_COLORS["border"],
+        )
 
     def selected_archive(self) -> Path | None:
         selection = self.archive_list.curselection()
@@ -176,6 +341,10 @@ class OrganizerWindow:
         self.validate_button.configure(state=state)
         self.run_button.configure(state=state)
         self.status.set(message)
+        self.status_label.configure(
+            background="#FFF3D6" if value else APP_COLORS["success"],
+            foreground="#8A5A00" if value else APP_COLORS["teal_dark"],
+        )
         if value:
             self.progress.start(12)
         else:

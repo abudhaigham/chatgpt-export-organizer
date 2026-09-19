@@ -13,7 +13,7 @@ from chatgpt_export_organizer.cli import (
     safe_title_prefix,
     valid_pdf_file,
 )
-from chatgpt_export_organizer.gui import human_size
+from chatgpt_export_organizer.gui import APP_COLORS, human_size
 from chatgpt_export_organizer.inbox import (
     ensure_inbox_layout,
     incoming_archives,
@@ -124,6 +124,13 @@ def test_archive_inspection_checks_complete_zip(tmp_path: Path) -> None:
 
 def test_human_size_for_gui() -> None:
     assert human_size(1024) == "1.0 KB"
+
+
+def test_gui_palette_has_accessible_brand_roles() -> None:
+    required = {"navy", "teal", "canvas", "card", "text", "muted", "success"}
+    assert required <= APP_COLORS.keys()
+    assert all(value.startswith("#") and len(value) == 7 for value in APP_COLORS.values())
+    assert APP_COLORS["navy"] != APP_COLORS["canvas"]
 
 
 def test_extract_assets_argument_uses_safe_default_directory() -> None:
