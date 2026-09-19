@@ -214,6 +214,35 @@ def test_managed_folder_import_is_isolated_and_repeatable(tmp_path: Path) -> Non
     assert not (source / "ChatGPT_DAT_Chat_Index.csv").exists()
 
 
+def test_managed_import_extracts_assets_only_under_results(tmp_path: Path) -> None:
+    source = tmp_path / "incoming-export"
+    workspace = tmp_path / "workspace"
+    write_synthetic_export(source)
+    (source / "file-demo123.dat").write_bytes(b"%PDF-synthetic")
+
+    result = run_cli(
+        None,
+        "--import-export",
+        str(source),
+        "--workspace",
+        str(workspace),
+        "--quiet",
+        "--extract-assets",
+    )
+    assert result.returncode == 0, result.stderr
+
+    imported = next((workspace / "imports").iterdir())
+    extracted = imported / "results" / "ChatGPT_Files"
+    inventory = extracted / "Asset_Inventory.csv"
+    assert inventory.exists()
+    with inventory.open(encoding="utf-8-sig") as stream:
+        row = next(csv.DictReader(stream))
+    assert row["detected_extension"] == ".pdf"
+    assert Path(row["extracted_path"]).is_file()
+    assert not (imported / "source" / "ChatGPT_Files").exists()
+    assert not (source / "ChatGPT_Files").exists()
+
+
 def test_managed_zip_import_and_source_protection(tmp_path: Path) -> None:
     export = tmp_path / "export-data"
     write_synthetic_export(export)

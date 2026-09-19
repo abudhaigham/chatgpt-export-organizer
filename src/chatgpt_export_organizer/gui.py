@@ -45,6 +45,7 @@ class OrganizerWindow:
         self.export_chats = tk.BooleanVar(value=True)
         self.group_assets = tk.BooleanVar(value=True)
         self.restore_originals = tk.BooleanVar(value=True)
+        self.extract_assets = tk.BooleanVar(value=True)
 
         outer = ttk.Frame(root, padding=18)
         outer.pack(fill="both", expand=True)
@@ -86,6 +87,11 @@ class OrganizerWindow:
             options,
             text="استعادة أسماء المرفقات الأصلية",
             variable=self.restore_originals,
+        ).pack(anchor="e")
+        ttk.Checkbutton(
+            options,
+            text="استخراج الصور والملفات وتنظيمها حسب النوع",
+            variable=self.extract_assets,
         ).pack(anchor="e")
 
         actions = ttk.Frame(outer)
@@ -218,6 +224,8 @@ class OrganizerWindow:
             command.append("--restore-originals")
         if self.export_chats.get():
             command.append("--export-chats")
+        if self.extract_assets.get():
+            command.append("--extract-assets")
         self.set_working(True, "جارٍ التحقق والاستيراد والتنظيم…")
         self.append_log(f"بدأت معالجة: {archive.name}")
 

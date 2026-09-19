@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from chatgpt_export_organizer.cli import (
+    arguments,
     asset_id_from_name,
     canonical_messages,
     conservative_pdf_text,
@@ -123,3 +124,8 @@ def test_archive_inspection_checks_complete_zip(tmp_path: Path) -> None:
 
 def test_human_size_for_gui() -> None:
     assert human_size(1024) == "1.0 KB"
+
+
+def test_extract_assets_argument_uses_safe_default_directory() -> None:
+    parsed = arguments(["--extract-assets"])
+    assert parsed.extract_assets == "ChatGPT_Files"
