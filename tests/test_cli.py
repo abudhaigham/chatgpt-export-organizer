@@ -114,9 +114,17 @@ def test_export_single_chat_to_json_and_pdf(tmp_path: Path) -> None:
     assert Path(row["Extracted JSON"]).exists()
     pdf = Path(row["PDF"])
     assert pdf.read_bytes().startswith(b"%PDF-")
-    expected_folder = tmp_path / "Extracted_Chats" / "محادثات بلا مشروع" / "Synthetic Chat"
+    expected_folder = (
+        tmp_path
+        / "Extracted_Chats"
+        / "جميع المحادثات — تصنيف المشروع غير متاح في تصدير OpenAI"
+        / "Synthetic Chat"
+    )
     assert Path(row["Extracted JSON"]) == expected_folder / "Synthetic Chat.json"
     assert pdf == expected_folder / "Synthetic Chat.pdf"
+    assert row["Project Classification"] == "Unavailable in OpenAI export"
+    notice = tmp_path / "Extracted_Chats" / "PROJECT_CLASSIFICATION_NOTICE.txt"
+    assert "لا يتضمن تصدير OpenAI علاقة موثوقة" in notice.read_text(encoding="utf-8")
     assert "00000000-0000-0000-0000-000000000001" not in str(pdf)
 
 
@@ -136,7 +144,7 @@ def test_duplicate_chat_titles_receive_readable_numbers(tmp_path: Path) -> None:
 
     result = run_cli(tmp_path, "--quiet", "--export-chats")
     assert result.returncode == 0, result.stderr
-    root = tmp_path / "Extracted_Chats" / "محادثات بلا مشروع"
+    root = tmp_path / "Extracted_Chats" / "جميع المحادثات — تصنيف المشروع غير متاح في تصدير OpenAI"
     assert (root / "Synthetic Chat" / "Synthetic Chat.json").exists()
     assert (root / "Synthetic Chat (2)" / "Synthetic Chat (2).json").exists()
 

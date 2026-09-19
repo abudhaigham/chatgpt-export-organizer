@@ -260,7 +260,13 @@ class OrganizerWindow:
                     self.refresh()
                     if payload["returncode"] == 0:
                         self.status.set("اكتملت العملية بنجاح")
-                        self.messagebox.showinfo("اكتملت العملية", "تم الاستيراد والتنظيم بنجاح.")
+                        self.messagebox.showinfo(
+                            "اكتملت العملية",
+                            "تم الاستيراد والتنظيم بنجاح.\n\n"
+                            "تنبيه: لا يتضمن تصدير OpenAI علاقة موثوقة بين "
+                            "المحادثات والمشاريع؛ لذلك حُفظت جميع المحادثات معًا "
+                            "دون تخمين تصنيف المشروع.",
+                        )
                     else:
                         self.status.set("توقفت العملية بسبب خطأ")
                         self.messagebox.showerror(

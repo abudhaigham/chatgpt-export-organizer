@@ -156,7 +156,7 @@ Grouped_DAT_Files/
     └── file-unmatched.dat
 
 Extracted_Chats/
-├── محادثات بلا مشروع/
+├── جميع المحادثات — تصنيف المشروع غير متاح في تصدير OpenAI/
 │   ├── Example Conversation/
 │   │   ├── Example Conversation.json
 │   │   └── Example Conversation.pdf
@@ -170,7 +170,9 @@ Conversation folders and files use the original ChatGPT title without exposing
 the internal conversation ID. Repeated titles receive readable `(2)`, `(3)`, and
 later suffixes. Current ChatGPT conversation exports do not include a reliable
 conversation-to-project relationship, so chats are placed under
-`محادثات بلا مشروع`; conversation IDs remain available in JSON and CSV reports.
+`جميع المحادثات — تصنيف المشروع غير متاح في تصدير OpenAI`. A notice file in
+`Extracted_Chats` records this limitation; conversation IDs remain available in
+JSON and CSV reports.
 
 ## Safety model
 

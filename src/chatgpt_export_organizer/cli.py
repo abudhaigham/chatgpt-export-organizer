@@ -37,7 +37,17 @@ from .inbox import (
 ASSET_ID_PATTERN = re.compile(r"file[-_][A-Za-z0-9]+")
 VERSION = "1.3.0"
 DEFAULT_WORKSPACE = str(default_workspace())
-UNASSIGNED_PROJECT = "محادثات بلا مشروع"
+PROJECT_CLASSIFICATION_UNAVAILABLE = "جميع المحادثات — تصنيف المشروع غير متاح في تصدير OpenAI"
+PROJECT_CLASSIFICATION_NOTICE = """Project classification unavailable
+
+The OpenAI export does not provide a reliable conversation-to-project mapping.
+All exported conversations are stored together without guessing project membership.
+
+تصنيف المشاريع غير متاح
+
+لا يتضمن تصدير OpenAI علاقة موثوقة بين المحادثات والمشاريع. لذلك حُفظت جميع
+المحادثات معًا دون تخمين المشروع، مع الحفاظ على عناوينها ومعرفاتها في JSON وCSV.
+"""
 
 
 def arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -785,7 +795,9 @@ def export_conversations(
     report_rows = []
     processed = 0
     output_name_counts: Counter[str] = Counter()
-    project_destination = destination / UNASSIGNED_PROJECT
+    project_destination = destination / PROJECT_CLASSIFICATION_UNAVAILABLE
+    notice_path = destination / "PROJECT_CLASSIFICATION_NOTICE.txt"
+    notice_path.write_text(PROJECT_CLASSIFICATION_NOTICE, encoding="utf-8")
 
     for source in sources:
         try:
@@ -799,6 +811,7 @@ def export_conversations(
                     "Message Count": "",
                     "Extracted JSON": "",
                     "PDF": "",
+                    "Project Classification": "Unavailable in OpenAI export",
                     "Status": "Source failed",
                     "Error": clean(error),
                 }
@@ -855,6 +868,7 @@ def export_conversations(
                     "Message Count": message_count,
                     "Extracted JSON": str(json_path),
                     "PDF": str(pdf_path),
+                    "Project Classification": "Unavailable in OpenAI export",
                     "Status": status,
                     "Error": error_text,
                 }
@@ -870,6 +884,7 @@ def export_conversations(
         "Message Count",
         "Extracted JSON",
         "PDF",
+        "Project Classification",
         "Status",
         "Error",
     ]
@@ -1251,6 +1266,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Conversation source failures: {chat_export_result['source_failed']:,}")
         print(f"Extracted chats directory:    {chat_export_root}")
         print(f"Chat export report:           {chat_export_result['report']}")
+        print("Project classification:       unavailable in OpenAI export")
     else:
         print("Chats extracted to PDF:    0 (not requested)")
     print(f"CSV report:               {output}")
